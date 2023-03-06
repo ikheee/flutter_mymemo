@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +13,9 @@ late SharedPreferences prefs;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   prefs = await SharedPreferences.getInstance();
+
+  MobileAds.instance.initialize();
+
   // runApp(const MyApp());
   runApp(
     MultiProvider(
@@ -18,7 +24,7 @@ void main() async {
       ],
       child: const MyApp(),
     ),
-  );  
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -42,12 +48,50 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final BannerAd myBanner = BannerAd(
+    // Test 광고 ID, 광고 승인받은 후 생성한 광고 unit ID 로 바꾸기
+    adUnitId: Platform.isAndroid
+        ? 'ca-app-pub-4626454853712911/8756746784' // ca-app-pub-3940256099942544/6300978111 // Android ad unit ID
+        : 'ca-app-pub-4626454853712911/5939011754', // ca-app-pub-3940256099942544/2934735716 // iOS ad unit ID
+    size: AdSize.fullBanner,
+    request: AdRequest(),
+    listener: BannerAdListener(
+      onAdFailedToLoad: (ad, error) {
+        ad.dispose();
+      },
+    ),
+  );
+
+  InterstitialAd? interstitialAd;
+
+  @override
+  void initState() {
+    super.initState();
+    myBanner.load();
+
+    InterstitialAd.load(
+        adUnitId: Platform.isAndroid
+            ? 'ca-app-pub-3940256099942544/1033173712'
+            : 'ca-app-pub-3940256099942544/4411468910',
+        request: AdRequest(),
+        adLoadCallback: InterstitialAdLoadCallback(
+          onAdLoaded: (InterstitialAd ad) {
+            // Keep a reference to the ad so you can show it later.
+            interstitialAd = ad;
+            interstitialAd?.show();
+          },
+          onAdFailedToLoad: (LoadAdError error) {
+            print('InterstitialAd failed to load: $error');
+          },
+        ));
+  }
+
   // List<String> memoList = ['장보기 목록: 사과, 양파'];
   @override
   Widget build(BuildContext context) {
     return Consumer<MemoService>(builder: (context, memoService, child) {
       List<Memo> memoList = memoService.memoList;
-        
+
       return Scaffold(
         appBar: AppBar(
           title: Text("mymemo"),
@@ -117,9 +161,14 @@ class _HomePageState extends State<HomePage> {
             }
           },
         ),
+        bottomNavigationBar: Container(
+          alignment: Alignment.center,
+          width: myBanner.size.width.toDouble(),
+          height: myBanner.size.height.toDouble(),
+          child: AdWidget(ad: myBanner),
+        ),
       );
-    }
-    );
+    });
   }
 }
 
